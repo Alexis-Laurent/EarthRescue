@@ -1,0 +1,246 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta charset="utf-8" />
+	<title></title>
+	<script src="js/three.js"></script>
+	<script src="js/OrbitControls.js"></script>
+	<script src="js/THREEx.KeyboardState.js"></script>
+	<script src="js/Detector.js"></script>
+	<script src="js/immeuble_gauche.js"></script>
+	<script src="js/immeuble_droit.js"></script>
+	<script src="js/city.js"></script>
+	<script src="js/Vaisseau_heros.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	<style>
+		body {
+			margin: 0;
+		}
+		canvas {
+			width: 100%;
+			height: 100%
+		}
+		.info_joueur {
+			color: white;
+			padding-left: 1em;
+			padding-top: 0.5em;
+			font-size: 2em;
+			font-family: monospace;
+			position: absolute;
+			width: 97%;
+		}
+		.info_vaisseau {
+			text-align: right;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="info_joueur">
+		<div id="joueur"></div>
+		<div id="niveau"></div>
+		<div id="vaisseau" class="info_vaisseau"></div>
+		<div id="vie" class="info_vaisseau"></div>
+		<div id="munition" class="info_vaisseau"></div>
+	</div>
+
+	<script>
+		var scene = new THREE.Scene();
+		var camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight);
+		var renderer = new THREE.WebGLRenderer();
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+
+		camera.position.z = 800;
+		camera.position.y = 200;
+
+		// Mouvement camera 
+		var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+		// Mouvement clavier
+		var keyboard = new THREEx.KeyboardState();
+		var clock = new THREE.Clock();
+
+		// Ciel
+		var cielTexture = new THREE.ImageUtils.loadTexture('js/espace.png');
+		cielTexture.wrapS = cielTexture.wrapT = THREE.RepeatWrapping;
+		cielTexture.repeat.set(2, 2);
+
+		var cielGeometry = new THREE.CubeGeometry(1500, 1500, 1500);
+		var cielMaterial = new THREE.MeshBasicMaterial( {map: cielTexture, side: THREE.BackSide} );
+		var ciel = new THREE.Mesh(cielGeometry, cielMaterial);
+		scene.add(ciel);		
+
+		// Terre
+		var terreTexture=new THREE.ImageUtils.loadTexture('js/terre.jpg');
+		terreTexture.wrapS=terreTexture.wrapT=THREE.RepeatWrapping;
+		terreTexture.repeat.set(1, 1);
+
+		var geometry6 = new THREE.SphereGeometry( 150, 32, 32 );
+		var material6 = new THREE.MeshBasicMaterial( {map:terreTexture,side:THREE.DoubleSide} );
+		var terre = new THREE.Mesh(geometry6, material6);
+
+		scene.add(terre);
+		terre.position.x= 500;
+		terre.position.y = 100;
+		terre.position.z = -300;
+
+		// Porte 1
+		var porteTexture = new THREE.ImageUtils.loadTexture('js/porte.jpg');
+		porteTexture.wrapS = porteTexture.wrapT = THREE.RepeatWrapping;
+		porteTexture.repeat.set(1, 1);
+
+		var porte1Geometry = new THREE.BoxGeometry(200, 100, 0);
+		var porte1Material = new THREE.MeshBasicMaterial({ map: porteTexture, side: THREE.DoubleSide });
+
+		var porte1 = new THREE.Mesh(porte1Geometry, porte1Material);
+		scene.add(porte1);
+		porte1.position.x = 0;
+		porte1.position.y = 100;
+		porte1.position.z = -500;					
+
+		// Vaisseau
+		var vaisseau = new vaisseauHeros2(0, 100, 550);
+		scene.add(vaisseau);
+
+
+		// Fonction de mouvement
+		function render() {
+			requestAnimationFrame(render);
+			renderer.render(scene, camera);
+			controls.update();
+
+			// Vitesse camera
+			var delta = clock.getDelta();
+			var moveDistance = 150 * delta;
+			var rotateAngle = Math.PI / 2 * delta;
+
+			terre.rotation.y += 0.002;					
+
+			// Droite
+			if (keyboard.pressed("x")) {
+				vaisseau.position.x += moveDistance;
+				camera.position.x += moveDistance;
+			}
+			// Gauche
+			if (keyboard.pressed("w")) {
+				vaisseau.position.x -= moveDistance;
+				camera.position.x -= moveDistance;
+			}
+			// Haut
+			if (keyboard.pressed("z")) {
+				vaisseau.position.y += moveDistance;
+				camera.position.y += moveDistance;
+			}
+			// Bas
+			if (keyboard.pressed("a")) {
+				vaisseau.position.y -= moveDistance;
+				camera.position.y -= moveDistance;
+			}
+			// Avancer
+			if (keyboard.pressed("s")) {
+				vaisseau.position.z -= moveDistance;
+				camera.position.z -= moveDistance;
+			}
+			// Reculer
+			if (keyboard.pressed("q")) {
+				vaisseau.position.z += moveDistance;
+				camera.position.z += moveDistance;
+			}
+			// Tourner à droite
+			if (keyboard.pressed("v")) {
+				vaisseau.rotation.y -= 0.1;
+				camera.rotation.y -= 0.1;
+			}
+			// Tourner à gauche
+			if (keyboard.pressed("c")) {
+				vaisseau.rotation.y += 0.1;
+				camera.rotation.y += 0.1;
+			}
+			camera.lookAt(vaisseau.position);		
+
+			if (vaisseau.position.z < -550) {
+				window.location = 'voyage1.html';
+			}	
+		}
+		render();
+
+
+		// Requêtes ajax information du joueur
+		function Info_joueur() {
+			$.ajax({
+				'url': 'http://192.168.0.12:81/api/Joueurs/',
+				'data': {
+				},
+				'datatype': 'json',
+				'type': 'GET',
+				'success': function (data) {
+
+					$("#joueur").html("&#128104; " + data[0].pseudoJoueur);
+				},
+				'error': function (data) {
+					alert('Erreur' + data);
+				}
+			});
+			$.ajax({
+				'url': 'http://192.168.0.12:81/api/NiveauJoueurs/',
+				'data': {
+				},
+				'datatype': 'json',
+				'type': 'GET',
+				'success': function (data) {
+
+					$("#niveau").html("&#128170; " + data[0].gradNiveauJoueur);
+				},
+				'error': function (data) {
+					alert('Erreur' + data);
+				}
+			});
+			$.ajax({
+				'url': 'http://192.168.0.12:81/api/Aeronefs/',
+				'data': {
+				},
+				'datatype': 'json',
+				'type': 'GET',
+				'success': function (data) {
+
+					$("#vie").html(data[0].vieAeronef + " &#128155;");
+				},
+				'error': function (data) {
+					alert('Erreur' + data);
+				}
+			});
+			$.ajax({
+				'url': 'http://192.168.0.12:81/api/TypeAeronefs/',
+				'data': {
+				},
+				'datatype': 'json',
+				'type': 'GET',
+				'success': function (data) {
+
+					$("#vaisseau").html(data[0].nomTypeAeronef + " &#128760;");
+				},
+				'error': function (data) {
+					alert('Erreur' + data);
+				}
+			});
+			$.ajax({
+				'url': 'http://192.168.0.12:81/api/Aeronefs/',
+				'data': {
+				},
+				'datatype': 'json',
+				'type': 'GET',
+				'success': function (data) {
+
+					$("#munition").html(data[0].munition + " &#128165;");
+				},
+				'error': function (data) {
+					alert('Erreur' + data);
+				}
+			});
+		}
+		Info_joueur()
+
+	</script>
+</body>
+</html>
